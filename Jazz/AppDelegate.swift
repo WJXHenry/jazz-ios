@@ -14,6 +14,7 @@ import GoogleSignIn
 class AppDelegate: UIResponder, UIApplicationDelegate, LiveChatDelegate, GIDSignInDelegate {
     
     var window: UIWindow?
+    var backgroundTask: UIBackgroundTaskIdentifier = UIBackgroundTaskInvalid
     
     /**
      Called when the app successfully finishes launching.
@@ -38,7 +39,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate, LiveChatDelegate, GIDSign
         GIDSignIn.sharedInstance().clientID = "1005492944288-br1plbs5ssruri91adinp5v4p60kqcgi.apps.googleusercontent.com"
         GIDSignIn.sharedInstance().delegate = self
         
+        registerBackgroundTask()
+        
+        if #available(iOS 10.0, *) {
+            var timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true, block: test)
+        }
+        
+        
         return true
+    }
+    
+    func test(timer: Timer) {
+        print("This is still running")
+    }
+    
+    // MARK: UIBackgroundTask
+    
+    func registerBackgroundTask() {
+        print("Registered bg task")
+        backgroundTask = UIApplication.shared.beginBackgroundTask(expirationHandler: endBackgroundTask)
+        assert(backgroundTask != UIBackgroundTaskInvalid)
+    }
+    
+    func endBackgroundTask() {
+        print("Ended bg task")
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = UIBackgroundTaskInvalid
     }
     
     /**
@@ -100,5 +126,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, LiveChatDelegate, GIDSign
         print("User disconnected")
     }
     // [END disconnect_handler]
+    
+    // MARK: LiveChatDelegate
+    
+    /**
+     Handles received messages from the LiveChat bundle. This can be used to do push notifications.
+     
+     - Parameter message: The message received.
+    */
+    func received(message: LiveChatMessage) {
+        print("Received message: \(message.text)")
+        let state = UIApplication.shared.applicationState
+        if (state == UIApplicationState.background) {
+            print("App in Background")
+        }
+        if (!LiveChat.isChatPresented) {
+            // Notifying user
+            let alert = UIAlertController(title: "Jazz", message: message.text, preferredStyle: .alert)
+            let chatAction = UIAlertAction(title: "Go to Chat", style: .default) { alert in
+                // Presenting chat if not presented:
+                if !LiveChat.isChatPresented {
+                    LiveChat.presentChat()
+                }
+            }
+            alert.addAction(chatAction)
+            
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+            alert.addAction(cancelAction)
+            
+            window?.rootViewController?.present(alert, animated: true, completion: nil)
+        }
+    }
 }
 
